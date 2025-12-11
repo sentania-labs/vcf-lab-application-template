@@ -21,7 +21,7 @@ virtual_machines = {
       }
     ]
   }
-},
+}
 deployments = {
   blueprintdeployment1 = {
     blueprint_name    = "Simple IAC Blueprint"
