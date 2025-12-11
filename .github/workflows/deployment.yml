@@ -1,4 +1,4 @@
-name: Deploy virtual machines
+name: Deploy workloads
 on:
   push:
     branches:

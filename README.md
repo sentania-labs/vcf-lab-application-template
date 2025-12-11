@@ -1,130 +1,182 @@
-# simpleIaC
-A streamlined Terraform-based framework for deploying **any Aria Automation / VCF Automation blueprint** using a single-pass plan and a clean variable-driven model.
+# VCF Lab Application Template
 
-This repository provides:
-- A top-level Terraform deployment that accepts environment-specific inputs.
-- A reusable module capable of deploying **any** blueprint by passing inputs dynamically from a `.tfvars` file.
-- Optional output exports for downstream integrations (DNS, CMDB, monitoring, etc.).
+This repository is a **ready‑to‑use Terraform application template** for deploying VMware Cloud Foundation (VCF) Automation / Aria Automation (VCFA) blueprints or machine resources via IaC.  It is designed to be cloned as part of project on-boarding in the [vm-apps-private-cloud](https://github.com/sentania-labs/vm-apps-private-cloud).  The cloning process as part of the on-boarding will populate a number of secrets used as required variables.  Other variables are defined as a part of the larger [sentania-labs](https://github.com/sentania-labs/) org.
 
-The design avoids circular dependencies and multi-pass planning by decoupling blueprint resource creation from consumer processes.
+It includes:
 
----
-
-## 🚀 Features
-
-### ✔️ Single-pass Terraform deployment
-The module has been refactored so that:
-- All blueprint inputs come from your `.tfvars` file.
-- Outputs from the deployment are exported without requiring a secondary plan or refresh.
-
-### ✔️ Generic blueprint module
-Feed it:
-- The blueprint ID or name  
-- Input map  
-- Project / region target  
-- Optional metadata and tagging  
-
-The module handles the rest.
-
-### ✔️ Clean separation of concerns
-This repo focuses on **provisioning only**.  
-Any post-provision actions (DNS, CMDB, NSX security, etc.) can be consumed from the outputs.
+- A Terraform project that uses your environment variables and tfvars to deploy into Aria/VCFA
+- A GitHub Actions pipeline that runs on commit
+- A **decommission workflow** for safely destroying all deployed infrastructure prior to repository removal
+  - This workflow is a manual step that must be completed prior to decomissioning the project in the [vm-apps-private-cloud](https://github.com/sentania-labs/vm-apps-private-cloud) repo.
 
 ---
 
-## 📁 Repository Structure
+## 🚀 What This Template Does
+
+This template enables you to:
+
+✔️ Provision Aria / VCFA infrastructure (blueprint deployments, machines)  
+✔️ Keep configurations in version control and run fully automated CI/CD  
+✔️ Destroy existing infrastructure cleanly via a dedicated decommission workflow  
+✔️ Support safe tear‑down before repo deletion
+
+---
+
+## 📁 Directory Layout
 
 ```
-simpleIaC/
-├── main.tf
-├── providers.tf
-├── variables.tf
-├── outputs.tf
+├── .github/
+│   ├── workflows/
+│   │   ├── deployment.yml
+│   │   └── decommission.yml
 ├── envs/
-│   ├── lab.tfvars
-│   └── example.tfvars
-└── modules/
-    └── blueprint-deploy/
-        ├── main.tf
-        ├── variables.tf
-        ├── outputs.tf
+│   └── lab.tfvars
+├── backend.tf
+├── deployments.tf
+├── machines.tf
+├── output-template.tpl
+├── provider.tf
+├── README.md
+├── variables.tf
+└── versionsoutputs.tf
+
+
 ```
 
 ---
 
-## 🧩 Using This Repository
+## 🔧 Prerequisites
 
-### 1. Clone the repo
-```bash
-git clone https://github.com/sentania-labs/simpleIaC
-cd simpleIaC
-```
+Before using this template:
 
-### 2. Copy an env file
-```bash
-cp envs/example.tfvars envs/my-env.tfvars
-```
+1. **Aria / VCFA API credentials** (refresh token or equivalent)  
+2. **GitHub Actions permissions** to run workflows and access Terraform state  
+3. **Terraform 1.14+** installed locally or in your CI environment  
+4. A configured **S3 backend** for Terraform state (see `backend.tf`)  
 
-### 3. Edit your TF vars
-Specify:
-- `project_id`
-- `blueprint_id`
-- `deployment_name`
-- `inputs = { ... }`
+---
 
-Example:
+## 📌 Configure Your Terraform Variables
+
+Copy the example vars file and edit it for your environment:
+
+Edit `envs/lab.tfvars` with values like:
+
 ```hcl
-project_id      = "12345"
-blueprint_id    = "bp-abcdef"
-deployment_name = "my-vm"
-inputs = {
-  cpu_count = 4
-  mem_gb    = 16
-  hostname  = "example"
+deployments = {
+  blueprintdeployment1 = {
+    blueprint_name    = "Simple IAC Blueprint"
+    deployment_name   = "Sample Deployment"
+    description       = "Provisioned by TF"
+    blueprint_version = "explicittags"
+    inputs = {
+      flavorSize   = "medium"
+      diskCount    = 2
+      diskSize     = 10
+    }
+  }
 }
 ```
 
-### 4. Initialize Terraform
+> The inputs block should match the blueprint parameters you intend to deploy.
+
+---
+
+## 📦 Run the Deployment
+
+### Locally
+
 ```bash
-terraform init
+terraform init -backend-config="key=vra/<project-slug>/terraform.tfstate"
+terraform plan -var-file="envs/lab.tfvars"
+terraform apply -var-file="envs/lab.tfvars"
 ```
 
-### 5. Plan and Apply
-```bash
-terraform plan -var-file="envs/my-env.tfvars"
-terraform apply -var-file="envs/my-env.tfvars"
+### GitHub Actions (Auto‑Triggered)
+
+On each commit to `main`, the **deployment.yml** workflow will:
+
+- Initialize Terraform  
+- Run `plan`  
+- Run `apply`  
+- Upload artifacts such as deployment output  
+
+Ensure the following secrets or vars are configured in the repo or org:
+
+| Name                        | Purpose |
+|-----------------------------|---------|
+| `VCFA_REFRESH_TOKEN`        | Aria / VCFA Auth |
+| `AWS_ACCESS_KEY_ID`         | S3 Backend |
+| `AWS_SECRET_ACCESS_KEY`     | S3 Backend |
+| `VCFA_PROJECT_NAME`         | Project name |
+| `VCFA_PROJECT_ID`           | Globally unique project ID |
+
+---
+
+## 🛠 Decommission Workflow
+
+This template includes a **decommission workflow** designed to:
+
+1. Destroy all deployed infrastructure  
+2. Clean Terraform state  
+3. Make the repository safe for deletion  
+
+### Running the Workflow
+
+Navigate to **Actions** → **Decommission Infrastructure** → **Run workflow**.
+
+You'll be prompted to confirm destruction. After destroy completes:
+
+- All VCFA deployments are removed  
+- Terraform state is cleaned  
+- Repo can be archived or deleted safely  
+
+---
+
+## 📌 State Backend Details
+
+This template expects Terraform state in S3:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "sentania-labs-terraform-state"
+    key            = "vra/<project-key>/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-locks"
+    encrypt        = true
+    use_lockfile   = true
+  }
+}
 ```
 
----
+The `<project-key>` is generated dynamically in CI based on:
 
-## 📤 Outputs
-
-The deployment exports:
-- Deployment ID  
-- Deployment name  
-- Resource map (each VM / disk / nic)  
-- IP address details  
-- Custom property results (if enabled)
-
-These can be consumed by downstream repos or pipelines.
+- Normalized project name  
+- Shortened project ID  
 
 ---
 
-## 🧱 Module Reference
+## 📄 Outputs
 
-See `Readme.md` for documentation of the reusable blueprint module.
-
----
-
-## 🤝 Contributing
-
-Feel free to open PRs if you'd like to contribute enhancements such as:
-- More flexible input validation
-- Event-driven follow-up integrations
-- Example downstream modules
+There are no explicity outputs, however deployments.tf will generate a listing of deployed virtual machines and their IP address.  This demonstrates how to access VM information when using blueprints ensuring that information is known at plan time.
 
 ---
 
-## 📜 License
+## 🛡️ Safety and Best Practices
 
-MIT — use freely in your lab, enterprise, or demos.
+- **Always run the decommission workflow before deleting the repo**  
+- Never commit secrets — use GitHub Secrets  
+- Maintain consistent naming conventions to avoid state mismatches  
+
+---
+
+## Questions?
+
+Feel free to reach out to me at [scott.bowe@broadcom.com](mailto:scott.bowe@broadcom.com) or [scottb@sentania.net](scottb@sentania.net).  Alternatively, feel free to open an issue.
+
+---
+
+## 📄 License
+
+MIT License

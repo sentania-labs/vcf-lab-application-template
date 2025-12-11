@@ -1,4 +1,4 @@
-name: Destroy virtual machines
+name: Decomission all workloads
 
 on:
   workflow_dispatch:
