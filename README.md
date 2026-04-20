@@ -39,7 +39,7 @@ This template enables you to:
 ├── provider.tf
 ├── README.md
 ├── variables.tf
-└── versionsoutputs.tf
+└── versions.tf
 
 
 ```
