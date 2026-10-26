@@ -17,7 +17,7 @@ jobs:
         github.event.before != '0000000000000000000000000000000000000000'
       ) &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.owner.login == 'sentania-labs')
-    runs-on: [self-hosted, terraform]
+    runs-on: lab
 
     env:
       # State backend credentials (lab S3). The S3 backend reads the AWS_*
